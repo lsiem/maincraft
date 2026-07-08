@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Data (large cached downloads and vector index)
+data/raw/
+data/chroma/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Playwright
+.playwright/
