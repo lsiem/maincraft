@@ -30,7 +30,41 @@ python -m ingestion.chunk_and_index --pack gtnh --wiki-playwright
 
 # Start the CLI
 python -m cli.main
+
+# Or start the Web UI (production — serves built frontend)
+python -m server.app
+# Open http://localhost:8000
 ```
+
+## Web UI
+
+A ChatGPT-style web interface with multi-chat support, per-chat pack selection, streaming responses, and a world-state panel.
+
+```bash
+# Development (hot reload frontend + API)
+# Terminal 1 — API server
+python -m server.app
+
+# Terminal 2 — Vite dev server (proxies /api to :8000)
+cd frontend && npm run dev
+# Open http://localhost:5173
+
+# Production (single command, serves built frontend)
+cd frontend && npm run build && cd ..
+python -m server.app
+# Open http://localhost:8000
+```
+
+### Web UI Features
+
+| Feature | Description |
+|---------|-------------|
+| Multi-chat sidebar | Create, rename, delete chats; grouped by date |
+| Pack selector | Switch between GTNH / E2E / E6 / E9 per chat |
+| Streaming responses | Real-time token streaming with tool-activity status |
+| Markdown rendering | Code highlighting, GFM tables, copy button |
+| World-state panel | View/edit progression, infrastructure, bottlenecks |
+| Starter prompts | Suggested questions per pack on empty chat |
 
 ## CLI Commands
 
@@ -48,11 +82,14 @@ maincraft/
   config.py              # Pack registry, model backends, paths
   ingestion/             # Data fetchers and parsers
   agent/                 # LangGraph ReAct agent + tools
+  server/                # FastAPI web server + SQLite chat store
+  frontend/              # React + Tailwind web UI
   cli/                   # Rich terminal interface
   session_wiki/          # Dynamic player state (markdown)
   data/
     raw/                 # Cached source data
     chroma/              # Vector index
+    chats.db             # Chat history (SQLite)
 ```
 
 ## Data Sources

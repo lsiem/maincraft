@@ -17,3 +17,8 @@ data/chroma/
 
 # Playwright
 .playwright/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+data/chats.db

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
 from langgraph.prebuilt import create_react_agent
 
-from agent.tools import ALL_TOOLS, get_active_pack, set_active_pack
+from agent.tools import ALL_TOOLS, set_active_pack
 from config import PackId
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,12 @@ about the player's world, use update_player_state to update the markdown wiki so
 Active modpack: {pack}
 """
 
+TOOL_LABELS = {
+    "search_modpack_knowledge": "Searching modpack knowledge…",
+    "read_player_state": "Reading your world state…",
+    "update_player_state": "Updating your world state…",
+}
+
 
 def _get_llm():
     """Return the configured chat model."""
@@ -42,6 +49,17 @@ def _get_llm():
         from langchain_ollama import ChatOllama
 
         return ChatOllama(model=OLLAMA_CHAT_MODEL, base_url=OLLAMA_BASE_URL, temperature=0.3)
+
+
+def _history_to_messages(history: list[dict[str, str]], pack_id: PackId) -> list:
+    """Convert stored message dicts to LangChain message objects."""
+    messages: list = [SystemMessage(content=SYSTEM_PROMPT.format(pack=pack_id))]
+    for msg in history:
+        if msg["role"] == "user":
+            messages.append(HumanMessage(content=msg["content"]))
+        elif msg["role"] == "assistant":
+            messages.append(AIMessage(content=msg["content"]))
+    return messages
 
 
 class ModpackAgent:
@@ -63,20 +81,7 @@ class ModpackAgent:
 
     def ask(self, question: str) -> str:
         """Send a question to the agent and return the final answer."""
-        pack_name = self.pack_id
-        system = SYSTEM_PROMPT.format(pack=pack_name)
-
-        try:
-            result = self._agent.invoke(
-                {"messages": [SystemMessage(content=system), HumanMessage(content=question)]},
-            )
-            messages = result.get("messages", [])
-            if messages:
-                return messages[-1].content
-            return "No response from agent."
-        except Exception as exc:
-            logger.error("Agent invocation failed: %s", exc)
-            return f"Agent error: {exc}"
+        return self._collect_stream(self.stream_with_history([{"role": "user", "content": question}], self.pack_id))
 
     def describe_world(self, description: str) -> str:
         """Route a world description through the agent to update session wiki."""
@@ -88,6 +93,60 @@ class ModpackAgent:
             f"Be concise and factual."
         )
         return self.ask(prompt)
+
+    def stream_with_history(
+        self,
+        history: list[dict[str, str]],
+        pack_id: PackId | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream agent events: token deltas and tool activity.
+
+        Yields dicts with keys:
+          - type: "token" | "tool" | "done" | "error"
+          - content: str (for token/tool/error)
+          - full: str (for done — complete assistant reply)
+        """
+        pack = pack_id or self.pack_id
+        set_active_pack(pack)
+        messages = _history_to_messages(history, pack)
+        full_response = ""
+
+        try:
+            for event in self._agent.stream(
+                {"messages": messages},
+                stream_mode="messages",
+            ):
+                msg, metadata = event if isinstance(event, tuple) else (event, {})
+                node = metadata.get("langgraph_node", "") if isinstance(metadata, dict) else ""
+
+                # Tool call announcements
+                if isinstance(msg, AIMessage) and msg.tool_calls:
+                    for tc in msg.tool_calls:
+                        name = tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "")
+                        label = TOOL_LABELS.get(name, f"Using {name}…")
+                        yield {"type": "tool", "content": label}
+
+                # Token streaming from LLM
+                if isinstance(msg, (AIMessage, AIMessageChunk)) and msg.content and node == "agent":
+                    chunk = msg.content if isinstance(msg.content, str) else str(msg.content)
+                    if chunk:
+                        full_response += chunk
+                        yield {"type": "token", "content": chunk}
+
+            yield {"type": "done", "content": full_response, "full": full_response}
+
+        except Exception as exc:
+            logger.error("Agent stream failed: %s", exc)
+            yield {"type": "error", "content": f"Agent error: {exc}"}
+
+    def _collect_stream(self, stream: Iterator[dict[str, Any]]) -> str:
+        result = ""
+        for event in stream:
+            if event["type"] == "done":
+                result = event.get("full", "")
+            elif event["type"] == "error":
+                result = event["content"]
+        return result or "No response from agent."
 
 
 def create_agent(pack_id: PackId = "gtnh") -> ModpackAgent:
