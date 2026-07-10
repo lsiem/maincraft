@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 # Minecraft formatting codes (§x)
 _FMT_RE = re.compile(r"§.")
 
+# BetterQuesting BBCode-style tags used in GTNH quest descriptions, e.g.
+# [warn]…[/warn], [note]…[/note], [url=href]label[/url]. Inner text is kept.
+_BB_TAG_PAIRED = re.compile(r"\[([a-zA-Z]+)(?:=[^\]]*)?\](.*?)\[/\1\]", re.DOTALL)
+_BB_OPEN = re.compile(r"\[[a-zA-Z]+(?:=[^\]]*)?\]")
+_BB_CLOSE = re.compile(r"\[/[a-zA-Z]+\]")
+
 
 @dataclass
 class QuestChunk:
@@ -33,11 +39,27 @@ class QuestChunk:
     metadata: dict = field(default_factory=dict)
 
 
+def _strip_bbcode(text: str) -> str:
+    """Unwrap/strip BetterQuesting BBCode tags, keeping inner text and link labels."""
+    if not text:
+        return ""
+    prev = None
+    iterations = 0
+    while prev != text and iterations < 10:
+        prev = text
+        text = _BB_TAG_PAIRED.sub(r"\2", text)
+        iterations += 1
+    text = _BB_OPEN.sub("", text)
+    text = _BB_CLOSE.sub("", text)
+    return text
+
+
 def strip_formatting(text: str) -> str:
-    """Remove Minecraft § formatting codes and normalize whitespace."""
+    """Remove Minecraft § formatting codes and BetterQuesting BBCode tags, then normalize whitespace."""
     if not text:
         return ""
     text = _FMT_RE.sub("", text)
+    text = _strip_bbcode(text)
     return re.sub(r"\s+", " ", text).strip()
 
 
