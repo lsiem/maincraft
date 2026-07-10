@@ -28,6 +28,9 @@ python -m ingestion.chunk_and_index --all --skip-wiki
 # Opt into slow Playwright wiki fallback
 python -m ingestion.chunk_and_index --pack gtnh --wiki-playwright
 
+# Enumerate the full GTNH wiki via the allpages API (broader RAG coverage)
+python -m ingestion.chunk_and_index --pack gtnh --wiki-all-pages
+
 # Start the CLI
 python -m cli.main
 
@@ -72,8 +75,27 @@ python -m server.app
 |---------|-------------|
 | `/set-pack gtnh\|e2e\|e6\|e9` | Set active modpack context |
 | `/describe-world <text>` | Update player state in session wiki |
-| `/reindex` | Re-run ingestion pipeline |
+| `/reindex [--skip-wiki] [--wiki-playwright] [--wiki-all-pages] [--wiki-max-pages N]` | Re-run ingestion pipeline |
 | Free text | Ask the guide anything |
+
+## Retrieval
+
+`search_modpack_knowledge` uses **hybrid retrieval**: cosine vector similarity
+(ChromaDB) combined with BM25 keyword scores over the retrieved candidates
+(0.6 vector + 0.4 BM25 by default). Quest-type chunks get a progression boost
+for "what's next"-style queries. If `rank-bm25` is unavailable it degrades
+gracefully to vector-only scoring.
+
+## Tests
+
+```bash
+cd maincraft
+python -m pytest tests/
+```
+
+The suite is fully offline — it uses synthetic BetterQuesting, FTB Quests SNBT,
+KubeJS/ZenScript, and MediaWiki export fixtures under `tests/fixtures/`, and
+mocks HTTP for the `allpages` pagination tests.
 
 ## Project Structure
 
