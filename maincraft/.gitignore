@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 .env
+.pytest_cache/
 
 # Data (large cached downloads and vector index)
 data/raw/
