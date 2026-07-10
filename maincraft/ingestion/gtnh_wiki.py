@@ -61,6 +61,50 @@ def _api_fetch_page(title: str) -> str | None:
         return None
 
 
+def _api_list_allpages(max_pages: int | None = None) -> list[str]:
+    """Enumerate all page titles in the main namespace via the MediaWiki allpages API.
+
+    Paginates via the continue tokens MediaWiki returns. Returns an empty list
+    if the API is blocked or unreachable. ``max_pages`` caps the result count
+    (useful for testing).
+    """
+    titles: list[str] = []
+    params: dict = {
+        "action": "query",
+        "format": "json",
+        "list": "allpages",
+        "aplimit": "500",
+        "formatversion": "2",
+    }
+    while True:
+        try:
+            resp = requests.get(WIKI_API, params=params, headers=_HEADERS, timeout=20)
+            if _is_bot_challenge(resp.text):
+                logger.warning("allpages blocked by bot challenge; stopping at %d pages", len(titles))
+                break
+            data = resp.json()
+        except Exception as exc:
+            logger.warning("allpages request failed: %s", exc)
+            break
+
+        for p in data.get("query", {}).get("allpages", []):
+            t = p.get("title")
+            if t:
+                titles.append(t)
+
+        if max_pages and len(titles) >= max_pages:
+            return titles[:max_pages]
+
+        cont = data.get("continue") or {}
+        if not cont:
+            break
+        # Merge continuation tokens (apcontinue + generic continue) back in.
+        params = {**params, **cont}
+        time.sleep(0.3)
+
+    return titles
+
+
 def _playwright_fetch_pages(titles: list[str]) -> dict[str, str | None]:
     """Fetch multiple pages with a single shared browser instance."""
     try:
@@ -151,20 +195,40 @@ def _parse_export_xml(xml_path: Path) -> list[WikiChunk]:
 def fetch_gtnh_wiki(
     pages: list[str] | None = None,
     use_playwright: bool = False,
+    all_pages: bool = False,
+    max_pages: int | None = None,
 ) -> list[WikiChunk]:
     """Fetch GTNH wiki pages, using cache when available.
 
     By default only uses the MediaWiki API and cached files. Playwright fallback
     is opt-in because Miraheze challenge pages are slow and unreliable.
     Place a manual export at data/raw/gtnh_wiki/export.xml to bulk-import pages.
+
+    If ``all_pages`` is True, enumerate the full main-namespace page list via the
+    MediaWiki ``allpages`` API instead of the curated priority list, for much
+    broader RAG coverage. Requires API access (or pre-cached files); falls back
+    to the curated list if enumeration is blocked. ``max_pages`` caps enumeration.
     """
-    pages = pages or GTNH_WIKI_PRIORITY_PAGES
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     export_xml = CACHE_DIR / "export.xml"
     if export_xml.exists():
         logger.info("Loading GTNH wiki from manual export: %s", export_xml)
         return _parse_export_xml(export_xml)
+
+    if all_pages:
+        enumerated = _api_list_allpages(max_pages=max_pages)
+        if enumerated:
+            pages = enumerated
+            logger.info("Enumerated %d pages via allpages API", len(pages))
+        else:
+            logger.warning(
+                "allpages enumeration returned no titles (API blocked?). "
+                "Falling back to curated page list + cache."
+            )
+            pages = pages or GTNH_WIKI_PRIORITY_PAGES
+    else:
+        pages = pages or GTNH_WIKI_PRIORITY_PAGES
 
     chunks: list[WikiChunk] = []
     to_fetch: list[str] = []
@@ -233,6 +297,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Fetch GTNH wiki pages")
     parser.add_argument("--playwright", action="store_true", help="Use Playwright fallback if API blocked")
+    parser.add_argument(
+        "--all-pages",
+        action="store_true",
+        help="Enumerate the full main-namespace page list via the allpages API instead of the curated list",
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=None,
+        help="Cap the number of pages enumerated with --all-pages (useful for testing)",
+    )
     args = parser.parse_args()
-    result = fetch_gtnh_wiki(use_playwright=args.playwright)
+    result = fetch_gtnh_wiki(
+        use_playwright=args.playwright,
+        all_pages=args.all_pages,
+        max_pages=args.max_pages,
+    )
     print(f"Fetched {len(result)} pages")

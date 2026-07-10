@@ -20,7 +20,7 @@ HELP_TEXT = """
 [bold]Commands:[/bold]
   /set-pack <gtnh|e2e|e6|e9>  Set active modpack context
   /describe-world <text>      Update player state in session wiki
-  /reindex [--skip-wiki] [--wiki-playwright]  Re-run ingestion pipeline
+  /reindex [--skip-wiki] [--wiki-playwright] [--wiki-all-pages] [--wiki-max-pages N]  Re-run ingestion pipeline
   /help                       Show this help
   /quit                       Exit
 
@@ -61,18 +61,34 @@ def _handle_describe_world(agent: ModpackAgent, args: str) -> None:
 def _handle_reindex(args: str) -> None:
     console.print("[dim]Starting ingestion pipeline…[/dim]")
     try:
+        import re as _re
+
         from ingestion.chunk_and_index import ingest_all, ingest_pack
 
         force = "--force" in args
         skip_wiki = "--skip-wiki" in args
         wiki_playwright = "--wiki-playwright" in args
-        pack = args.strip().replace("--force", "").replace("--skip-wiki", "").replace("--wiki-playwright", "").strip()
+        wiki_all_pages = "--wiki-all-pages" in args
+
+        max_pages = None
+        m = _re.search(r"--wiki-max-pages\s+(\d+)", args)
+        if m:
+            max_pages = int(m.group(1))
+
+        pack = args
+        for flag in ("--force", "--skip-wiki", "--wiki-playwright", "--wiki-all-pages"):
+            pack = pack.replace(flag, "")
+        pack = _re.sub(r"--wiki-max-pages\s+\d+", "", pack)
+        pack = pack.strip()
+
         if pack in PACKS:
             count = ingest_pack(
                 pack,  # type: ignore[arg-type]
                 force_download=force,
                 skip_wiki=skip_wiki,
                 wiki_playwright=wiki_playwright,
+                wiki_all_pages=wiki_all_pages,
+                wiki_max_pages=max_pages,
             )
             console.print(f"[green]Indexed {count} chunks for {pack}[/green]")
             return
@@ -81,6 +97,8 @@ def _handle_reindex(args: str) -> None:
             force_download=force,
             skip_wiki=skip_wiki,
             wiki_playwright=wiki_playwright,
+            wiki_all_pages=wiki_all_pages,
+            wiki_max_pages=max_pages,
         )
         for pid, count in results.items():
             console.print(f"  {pid}: {count} chunks")
