@@ -39,7 +39,7 @@ def _get_chroma_collection():
     return client.get_collection(name=CHROMA_COLLECTION)
 
 
-from embeddings import query_collection
+from embeddings import hybrid_rescore, query_collection
 @tool
 def search_modpack_knowledge(query: str, pack_filter: str = "") -> str:
     """Search the modpack knowledge vector database for quest, wiki, and recipe information.
@@ -65,14 +65,15 @@ def search_modpack_knowledge(query: str, pack_filter: str = "") -> str:
         progression_keywords = {"next", "progress", "quest", "tier", "age", "after", "require", "unlock"}
         is_progression = any(kw in query.lower() for kw in progression_keywords)
 
-        scored: list[tuple[float, str, dict]] = []
-        for doc, meta, dist in zip(docs, metas, distances):
-            score = 1.0 - dist
-            if is_progression and meta.get("type") == "quest":
-                score *= QUEST_CHUNK_BOOST
-            scored.append((score, doc, meta))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
+        # Hybrid retrieval: combine cosine vector similarity with BM25 keyword scores.
+        scored = hybrid_rescore(
+            query=query,
+            documents=docs,
+            distances=distances,
+            metadatas=metas,
+            progression_boost=is_progression,
+            quest_boost=QUEST_CHUNK_BOOST,
+        )
 
         output_lines = [f"Found {len(scored)} results for '{query}' (pack: {pack}):\n"]
         for i, (score, doc, meta) in enumerate(scored[:6], 1):
