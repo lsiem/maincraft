@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 # Minecraft formatting codes (§x)
 _FMT_RE = re.compile(r"§.")
 
+# BetterQuesting BBCode-style tags used in GTNH quest descriptions, e.g.
+# [warn]…[/warn], [note]…[/note], [url=href]label[/url]. Inner text is kept.
+_BB_TAG_PAIRED = re.compile(r"\[([a-zA-Z]+)(?:=[^\]]*)?\](.*?)\[/\1\]", re.DOTALL)
+_BB_OPEN = re.compile(r"\[[a-zA-Z]+(?:=[^\]]*)?\]")
+_BB_CLOSE = re.compile(r"\[/[a-zA-Z]+\]")
+
 
 @dataclass
 class QuestChunk:
@@ -33,18 +39,42 @@ class QuestChunk:
     metadata: dict = field(default_factory=dict)
 
 
+def _strip_bbcode(text: str) -> str:
+    """Unwrap/strip BetterQuesting BBCode tags, keeping inner text and link labels."""
+    if not text:
+        return ""
+    prev = None
+    iterations = 0
+    while prev != text and iterations < 10:
+        prev = text
+        text = _BB_TAG_PAIRED.sub(r"\2", text)
+        iterations += 1
+    text = _BB_OPEN.sub("", text)
+    text = _BB_CLOSE.sub("", text)
+    return text
+
+
 def strip_formatting(text: str) -> str:
-    """Remove Minecraft § formatting codes and normalize whitespace."""
+    """Remove Minecraft § formatting codes and BetterQuesting BBCode tags, then normalize whitespace."""
     if not text:
         return ""
     text = _FMT_RE.sub("", text)
+    text = _strip_bbcode(text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def _infer_tier(questline: str) -> str:
-    """Guess GTNH voltage tier from questline name."""
+    """Guess GTNH voltage tier from questline name.
+
+    Candidates are checked longest/most-specific first so that e.g. ``UHV`` is
+    not misreported as ``UH`` and ``LuV`` is reported as ``LUV`` rather than ``LU``.
+    """
     upper = questline.upper()
-    for tier in ("UH", "UV", "UHV", "ZPM", "LU", "IV", "EV", "HV", "MV", "LV", "STEAM", "STONE"):
+    for tier in (
+        "UHV", "UEV", "UIV", "UMV", "UXV", "ULV", "LUV",
+        "ZPM", "UV", "IV", "EV", "HV", "MV", "LV",
+        "STEAM", "STONE",
+    ):
         if tier in upper:
             return tier
     return ""
@@ -107,17 +137,33 @@ def _parse_reward(reward: dict) -> str:
     return ", ".join(parts) if parts else ""
 
 
-def _quest_from_json(quest_data: dict, questline: str = "", pack: str = "") -> QuestChunk | None:
-    """Convert a single BetterQuesting quest JSON object to a QuestChunk."""
+def _quest_title(quest_data: dict) -> str:
+    """Extract a cleaned quest title from a BetterQuesting quest JSON object."""
     props = _get_field(quest_data, "properties:10", "properties", default={})
     quest_id = str(_get_field(quest_data, "questID:8", "questID:3", "questID", default=""))
-
     bq_props = props.get("betterquesting:10", props) if isinstance(props, dict) else {}
-    title = strip_formatting(
+    return strip_formatting(
         _get_field(bq_props, "name:8", "name", default="")
         or _get_field(quest_data, "name", default="")
         or f"Quest {quest_id[:8]}"
     )
+
+
+def _quest_from_json(
+    quest_data: dict,
+    questline: str = "",
+    pack: str = "",
+    id_to_title: dict[str, str] | None = None,
+) -> QuestChunk | None:
+    """Convert a single BetterQuesting quest JSON object to a QuestChunk.
+
+    If ``id_to_title`` is provided, numeric prerequisite IDs are resolved to
+    human-readable quest titles for both the markdown body and metadata.
+    """
+    quest_id = str(_get_field(quest_data, "questID:8", "questID:3", "questID", default=""))
+    title = _quest_title(quest_data)
+    props = _get_field(quest_data, "properties:10", "properties", default={})
+    bq_props = props.get("betterquesting:10", props) if isinstance(props, dict) else {}
     desc = strip_formatting(
         _get_field(bq_props, "desc:8", "desc", default="")
         or _get_field(quest_data, "desc", default="")
@@ -143,13 +189,20 @@ def _quest_from_json(quest_data: dict, questline: str = "", pack: str = "") -> Q
                 if r:
                     reward_lines.append(r)
 
-    # Prerequisites
+    # Prerequisites — resolve numeric IDs to quest titles when a map is available
     prereqs_raw = _get_field(quest_data, "preRequisites:11", "preRequisites", default=[])
     prereq_ids: list[str] = []
     if isinstance(prereqs_raw, list):
         prereq_ids = [str(p) for p in prereqs_raw]
     elif isinstance(prereqs_raw, dict):
-        prereq_ids = list(prereqs_raw.values())
+        prereq_ids = [str(v) for v in prereqs_raw.values()]
+
+    resolved_prereqs: list[str] = []
+    for pid in prereq_ids:
+        if id_to_title and id_to_title.get(pid):
+            resolved_prereqs.append(id_to_title[pid])
+        else:
+            resolved_prereqs.append(pid)
 
     # Build markdown body
     lines = [f"# Quest: {title}"]
@@ -161,8 +214,8 @@ def _quest_from_json(quest_data: dict, questline: str = "", pack: str = "") -> Q
         lines.append("\n**Requires:**")
         for t in task_lines:
             lines.append(f"- {t}")
-    if prereq_ids:
-        lines.append(f"\n**Prerequisites:** {', '.join(prereq_ids[:5])}")
+    if resolved_prereqs:
+        lines.append(f"\n**Prerequisites:** {', '.join(resolved_prereqs[:5])}")
     if reward_lines:
         lines.append("\n**Rewards:**")
         for r in reward_lines:
@@ -183,6 +236,7 @@ def _quest_from_json(quest_data: dict, questline: str = "", pack: str = "") -> Q
             "questline": questline,
             "tier": tier,
             "title": title,
+            "prerequisites": ", ".join(resolved_prereqs[:10]),
         },
     )
 
@@ -212,20 +266,30 @@ def parse_tree(pack_id: PackId, raw_dir: Path | None = None) -> list[QuestChunk]
                     except (json.JSONDecodeError, OSError):
                         pass
 
-    chunks: list[QuestChunk] = []
+    # Two passes: first build a quest_id -> title map so prerequisite IDs can be
+    # resolved to human-readable titles, then build the chunks.
+    parsed: list[tuple[str, dict]] = []
+    id_to_title: dict[str, str] = {}
     for ql_folder in sorted(quests_dir.iterdir()):
         if not ql_folder.is_dir():
             continue
         questline = ql_folder.name.rsplit("-", 1)[0]
-
         for quest_file in sorted(ql_folder.glob("*.json")):
             try:
                 data = json.loads(quest_file.read_text(encoding="utf-8"))
-                chunk = _quest_from_json(data, questline=questline, pack=pack_id)
-                if chunk:
-                    chunks.append(chunk)
             except (json.JSONDecodeError, OSError) as exc:
                 logger.debug("Skipping %s: %s", quest_file, exc)
+                continue
+            qid = str(_get_field(data, "questID:8", "questID:3", "questID", default=""))
+            if qid:
+                id_to_title[qid] = _quest_title(data)
+            parsed.append((questline, data))
+
+    chunks: list[QuestChunk] = []
+    for questline, data in parsed:
+        chunk = _quest_from_json(data, questline=questline, pack=pack_id, id_to_title=id_to_title)
+        if chunk:
+            chunks.append(chunk)
 
     logger.info("Parsed %d quests from %s tree layout", len(chunks), pack_id)
     return chunks
@@ -272,16 +336,25 @@ def parse_monolith(pack_id: PackId, raw_dir: Path | None = None) -> list[QuestCh
                             if qid:
                                 quest_to_line[qid] = ql_name
 
-    chunks: list[QuestChunk] = []
+    # Two passes: build quest_id -> title map, then build chunks with resolved prereqs.
     quests = _get_field(data, "questDatabase:9", "quests:9", "quests", default={})
+    id_to_title: dict[str, str] = {}
+    quest_entries: list[dict] = []
     if isinstance(quests, dict):
         for _key, quest_data in quests.items():
             if isinstance(quest_data, dict):
                 qid = str(_get_field(quest_data, "questID:8", "questID:3", "questID"))
-                questline = quest_to_line.get(qid, "")
-                chunk = _quest_from_json(quest_data, questline=questline, pack=pack_id)
-                if chunk:
-                    chunks.append(chunk)
+                if qid:
+                    id_to_title[qid] = _quest_title(quest_data)
+                quest_entries.append(quest_data)
+
+    chunks: list[QuestChunk] = []
+    for quest_data in quest_entries:
+        qid = str(_get_field(quest_data, "questID:8", "questID:3", "questID"))
+        questline = quest_to_line.get(qid, "")
+        chunk = _quest_from_json(quest_data, questline=questline, pack=pack_id, id_to_title=id_to_title)
+        if chunk:
+            chunks.append(chunk)
 
     logger.info("Parsed %d quests from %s monolith layout", len(chunks), pack_id)
     return chunks

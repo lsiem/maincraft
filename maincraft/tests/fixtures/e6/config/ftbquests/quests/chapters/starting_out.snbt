@@ -1,0 +1,37 @@
+{
+	title: "Getting Started"
+	filename: "starting_out"
+	default_quest_shape: "circle"
+	quests: [
+		{
+			id: "q1"
+			x: 0.0d
+			y: 0.0d
+			title: "Collect Wood"
+			subtitle: "Punch a tree"
+			description: ["Punch a tree to get started", "Collect 16 logs"]
+			tasks: [
+				{
+					id: "t1"
+					type: "ftbquests:item"
+					item: "minecraft:oak_log"
+					count: 16L
+				}
+			]
+			rewards: [
+				{
+					id: "r1"
+					type: "ftbquests:item"
+					item: "minecraft:iron_axe"
+				}
+			]
+			dependencies: ["q0"]
+		}
+		{
+			id: "q2"
+			title: "Make Planks"
+			description: ["Convert logs to planks"]
+			dependencies: ["q1"]
+		}
+	]
+}

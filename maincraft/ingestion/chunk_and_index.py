@@ -91,6 +91,8 @@ def ingest_pack(
     force_download: bool = False,
     skip_wiki: bool = False,
     wiki_playwright: bool = False,
+    wiki_all_pages: bool = False,
+    wiki_max_pages: int | None = None,
 ) -> int:
     """Download, parse, and index a single pack. Returns chunk count."""
     download_tarball(pack_id, force=force_download)
@@ -98,7 +100,11 @@ def ingest_pack(
 
     # Wiki / docs
     if pack_id == "gtnh" and not skip_wiki:
-        for wc in fetch_gtnh_wiki(use_playwright=wiki_playwright):
+        for wc in fetch_gtnh_wiki(
+            use_playwright=wiki_playwright,
+            all_pages=wiki_all_pages,
+            max_pages=wiki_max_pages,
+        ):
             parts = _split_long_text(wc.body, wc.metadata)
             chunks.extend(parts)
     elif pack_id in ("e6", "e9") and not skip_wiki:
@@ -160,6 +166,8 @@ def ingest_all(
     force_download: bool = False,
     skip_wiki: bool = False,
     wiki_playwright: bool = False,
+    wiki_all_pages: bool = False,
+    wiki_max_pages: int | None = None,
 ) -> dict[str, int]:
     """Ingest all packs. Returns {pack_id: chunk_count}."""
     results: dict[str, int] = {}
@@ -170,6 +178,8 @@ def ingest_all(
                 force_download=force_download,
                 skip_wiki=skip_wiki,
                 wiki_playwright=wiki_playwright,
+                wiki_all_pages=wiki_all_pages,
+                wiki_max_pages=wiki_max_pages,
             )
             results[pack_id] = count
         except Exception as exc:
@@ -190,6 +200,17 @@ def main() -> None:
         action="store_true",
         help="Use Playwright browser fallback for GTNH wiki if API is blocked (slow)",
     )
+    parser.add_argument(
+        "--wiki-all-pages",
+        action="store_true",
+        help="Enumerate the full GTNH wiki via the allpages API instead of the curated page list",
+    )
+    parser.add_argument(
+        "--wiki-max-pages",
+        type=int,
+        default=None,
+        help="Cap the number of pages enumerated by --wiki-all-pages (testing)",
+    )
     args = parser.parse_args()
 
     if args.all:
@@ -197,6 +218,8 @@ def main() -> None:
             force_download=args.force,
             skip_wiki=args.skip_wiki,
             wiki_playwright=args.wiki_playwright,
+            wiki_all_pages=args.wiki_all_pages,
+            wiki_max_pages=args.wiki_max_pages,
         )
         for pid, count in results.items():
             print(f"  {pid}: {count} chunks")
@@ -206,6 +229,8 @@ def main() -> None:
             force_download=args.force,
             skip_wiki=args.skip_wiki,
             wiki_playwright=args.wiki_playwright,
+            wiki_all_pages=args.wiki_all_pages,
+            wiki_max_pages=args.wiki_max_pages,
         )
         print(f"  {args.pack}: {count} chunks")
     else:

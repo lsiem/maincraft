@@ -1,0 +1,26 @@
+{
+  "questID:8": 239,
+  "properties:10": {
+    "betterquesting:10": {
+      "name:8": "Yet another brick",
+      "desc:8": "[warn]Careful![/warn] A magic one. [note]See infusion.[/note] [url=https://example.com/guide]guide[/url]"
+    }
+  },
+  "preRequisites:11": [251],
+  "tasks:9": {
+    "0:10": {
+      "taskID:8": "bq_standard:retrieval",
+      "requiredItems:9": {
+        "0:10": {"id:8": "Thaumcraft:blockCosmeticSolid", "Count:3": 8, "Damage:2": 7}
+      }
+    }
+  },
+  "rewards:9": {
+    "0:10": {
+      "rewardID:8": "bq_standard:item",
+      "rewards:9": {
+        "0:10": {"id:8": "enhancedlootbags:lootbag", "Count:3": 1, "Damage:2": 9}
+      }
+    }
+  }
+}
