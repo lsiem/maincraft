@@ -64,9 +64,17 @@ def strip_formatting(text: str) -> str:
 
 
 def _infer_tier(questline: str) -> str:
-    """Guess GTNH voltage tier from questline name."""
+    """Guess GTNH voltage tier from questline name.
+
+    Candidates are checked longest/most-specific first so that e.g. ``UHV`` is
+    not misreported as ``UH`` and ``LuV`` is reported as ``LUV`` rather than ``LU``.
+    """
     upper = questline.upper()
-    for tier in ("UH", "UV", "UHV", "ZPM", "LU", "IV", "EV", "HV", "MV", "LV", "STEAM", "STONE"):
+    for tier in (
+        "UHV", "UEV", "UIV", "UMV", "UXV", "ULV", "LUV",
+        "ZPM", "UV", "IV", "EV", "HV", "MV", "LV",
+        "STEAM", "STONE",
+    ):
         if tier in upper:
             return tier
     return ""
