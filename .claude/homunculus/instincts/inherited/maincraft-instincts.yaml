@@ -1,0 +1,427 @@
+# Instincts generated from https://github.com/lsiem/maincraft
+# Generated: 2026-07-10T14:56:00.129Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: maincraft-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Commit Length
+
+## Action
+
+Keep commit messages concise (~48 characters)
+
+## Evidence
+
+- Average commit message length: 48 chars
+- Based on 8 commits
+
+---
+id: maincraft-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: maincraft-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: maincraft-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Export Style
+
+## Action
+
+Prefer mixed exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: mixed
+
+---
+id: maincraft-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: 
+
+---
+id: maincraft-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: maincraft-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Test Types
+
+## Action
+
+Write unit, e2e tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, e2e
+- Coverage config: no
+
+---
+id: maincraft-workflow-parser-enhancement-or-bugfix
+trigger: "when doing parser enhancement or bugfix"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Workflow Parser Enhancement Or Bugfix
+
+## Action
+
+Follow the parser-enhancement-or-bugfix workflow:
+1. Edit maincraft/ingestion/parse_betterquesting.py to implement the enhancement or bugfix.
+2. Update or refactor parsing functions as needed.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: maincraft/ingestion/parse_betterquesting.py
+
+---
+id: maincraft-workflow-feature-development-with-readme-update
+trigger: "when doing feature development with readme update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/lsiem/maincraft
+---
+
+# Maincraft Workflow Feature Development With Readme Update
+
+## Action
+
+Follow the feature-development-with-readme-update workflow:
+1. Implement the new feature or change in codebase.
+2. Edit maincraft/README.md to document the new feature or update instructions.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: maincraft/README.md
+
+---
+id: maincraft-instinct-file-naming-camelCase
+trigger: "When creating a new Python file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct File Naming CamelCase
+
+## Action
+
+Name the file using camelCase (e.g., parseBetterquesting.py)
+
+## Evidence
+
+- Pattern in namingConventions.files
+- maincraft/ingestion/parse_betterquesting.py
+
+---
+id: maincraft-instinct-function-naming-camelCase
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Function Naming CamelCase
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.functions
+
+---
+id: maincraft-instinct-class-naming-pascalCase
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Class Naming PascalCase
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Pattern in namingConventions.classes
+
+---
+id: maincraft-instinct-constant-naming-screamingSnakeCase
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Constant Naming ScreamingSnakeCase
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in namingConventions.constants
+
+---
+id: maincraft-instinct-imports-relative
+trigger: "When importing modules in Python code"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Imports Relative
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in importStyle
+
+---
+id: maincraft-instinct-exports-mixed
+trigger: "When exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Exports Mixed
+
+## Action
+
+Use either explicit or implicit exports as appropriate
+
+## Evidence
+
+- Pattern in exportStyle
+
+---
+id: maincraft-instinct-testing-file-pattern
+trigger: "When adding a new test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Testing File Pattern
+
+## Action
+
+Name the file with a .test.ts suffix
+
+## Evidence
+
+- Pattern in testing.filePattern
+
+---
+id: maincraft-instinct-testing-types
+trigger: "When writing tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Testing Types
+
+## Action
+
+Write both unit and e2e tests as appropriate
+
+## Evidence
+
+- Pattern in testing.testTypes
+
+---
+id: maincraft-instinct-commit-prefix-cursor
+trigger: "When making a commit related to cursor functionality"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Commit Prefix Cursor
+
+## Action
+
+Prefix the commit message with 'Cursor:'
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Seen in commit: 'Cursor: Apply local changes for cloud agent'
+
+---
+id: maincraft-instinct-commit-message-freeform
+trigger: "When writing a commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Commit Message Freeform
+
+## Action
+
+Use a freeform message, optionally starting with a relevant prefix
+
+## Evidence
+
+- Pattern in commits.type
+- Examples in commits.examples
+
+---
+id: maincraft-instinct-parser-enhancement-or-bugfix
+trigger: "When someone wants to improve or fix the BetterQuesting quest parsing logic"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Parser Enhancement Or Bugfix
+
+## Action
+
+Edit maincraft/ingestion/parse_betterquesting.py to implement the enhancement or bugfix, and update/refactor parsing functions as needed
+
+## Evidence
+
+- Workflow: parser-enhancement-or-bugfix
+- Files: maincraft/ingestion/parse_betterquesting.py
+- Commits: 'Resolve BetterQuesting prerequisite IDs to quest titles', 'Strip BetterQuesting BBCode tags from quest text'
+
+---
+id: maincraft-instinct-feature-development-with-readme-update
+trigger: "When someone adds a new feature, CLI flag, or major change that needs to be documented for users"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: lsiem/maincraft
+---
+
+# Maincraft Instinct Feature Development With Readme Update
+
+## Action
+
+Implement the new feature or change in the codebase, then edit maincraft/README.md to document the new feature or update instructions
+
+## Evidence
+
+- Workflow: feature-development-with-readme-update
+- Files: maincraft/README.md
+- Commits: 'Document --wiki-all-pages, hybrid retrieval, and tests in README'
+
